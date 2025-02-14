@@ -11,19 +11,35 @@ mu_1 = np.mean(class_1, axis=0)
 mu_2 = np.mean(class_2, axis=0)
 
 # Define the original projection direction (e.g., diagonal)
-v = np.array([1, 1]) / np.sqrt(2)  # 45-degree normalized direction
+v = np.array([1, 1.5]) / np.sqrt(2)  # 45-degree normalized direction
 
 # Rotate v by θ 
-theta = np.radians(60)  # Convert to radians
+theta_deg = 80
+theta = np.radians(theta_deg)  # Convert to radians
 
 rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
 v_new = rotation_matrix @ v  # Rotate the vector
+
+# Compute within-class scatter matrix Sw
+S1 = np.sum([(x - mu_1).reshape(-1, 1) @ (x - mu_1).reshape(1, -1) for x in class_1], axis=0)
+S2 = np.sum([(x - mu_2).reshape(-1, 1) @ (x - mu_2).reshape(1, -1) for x in class_2], axis=0)
+S_W = S1 + S2
+
+# Compute between-class scatter matrix Sb
+mu_diff = (mu_2 - mu_1).reshape(-1, 1)
+S_B = mu_diff @ mu_diff.T
+
+# Solve the generalized eigenvalue problem for Sw^-1 Sb
+eigenvalues, eigenvectors = np.linalg.eig(np.linalg.inv(S_W) @ S_B)
+
+# Select the eigenvector corresponding to the largest eigenvalue (optimal direction)
+v_best = eigenvectors[:, np.argmax(eigenvalues)]
 
 # Define a function to plot projection lines
 def plot_projection_line(v, color, label):
     # Plots a projection line along direction v.
     # Define a center point for reference (e.g., the midpoint of the means)
-    center = [0, 0]#(mu_1 + mu_2) / 2  
+    center = (mu_1 + mu_2) / 2  
     # Generate a line along v
     t = np.linspace(-8, 8, 100)  # Range for plotting
     line_x = center[0] + t * v[0]
@@ -38,7 +54,11 @@ plt.scatter(class_2[:, 0], class_2[:, 1], alpha=0.5, label="Class 2", color='lig
 plot_projection_line(v, "gray", "Original Projection v")
 
 # Plot the rotated projection direction
-plot_projection_line(v_new, "purple", "Rotated Projection v' (30°)")
+plot_projection_line(v_new, "purple", f"Rotated Projection v' ({theta_deg}°)")
+
+# Plot the optimal LDA projection direction
+plot_projection_line(v_best, "green", "Best LDA Direction")
+
 
 def plot_projection_line(mu_1,mu_2,v,arrow_color):
     # Project means onto v
@@ -57,7 +77,7 @@ def plot_projection_line(mu_1,mu_2,v,arrow_color):
 
 plot_projection_line(mu_1,mu_2,v,'black')
 plot_projection_line(mu_1,mu_2,v_new,'purple')
-
+plot_projection_line(mu_1,mu_2,v_best,'green')
 
 # Labels and legend
 plt.xlabel("Feature 1")
